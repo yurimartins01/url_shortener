@@ -11,6 +11,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UrlShortener.Api.Tests", "tests\UrlShortener.Api.Tests\UrlShortener.Api.Tests.csproj", "{B722C0EE-5D3B-4D88-B9DE-D234C3964D1C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Itens de Solução", "Itens de Solução", "{380A7511-A354-6D7A-0CC0-8FA1F1BA7B6C}"
+	ProjectSection(SolutionItems) = preProject
+		compose.yaml = compose.yaml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -52,5 +57,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{08F9C885-7017-493A-90E6-B8C3B90F3C8A} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{B722C0EE-5D3B-4D88-B9DE-D234C3964D1C} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {589CBAF2-9F2A-4DCC-9644-5D6F0F4611AB}
 	EndGlobalSection
 EndGlobal
