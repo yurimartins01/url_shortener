@@ -1,10 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using UrlShortener.Api.Domain;
 using UrlShortener.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<AppDbContext>(options => options
@@ -12,9 +11,10 @@ builder.Services.AddDbContext<AppDbContext>(options => options
     .UseSnakeCaseNamingConvention()
 );
 
+builder.Services.AddSingleton<IShortCodeGenerator, Base62ShortCodeGenerator>();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
