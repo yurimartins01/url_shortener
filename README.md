@@ -5,6 +5,38 @@ Uma URL longa pode ser um problema em ambientes com limite de caracteres e pode 
 
 O encurtador resolve isso gerando um link curto e estável que redireciona para o endereço original.
 
+## Guia de instalação e inicialização da aplicação
+
+**Requisitos:**
+
+Clique para ir ao site oficial:
+
+- [Dotnet SDK 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) Versão recomendada: 10.0.100
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+Na raiz do projeto, reproduza os comandos abaixo mantendo a ordem.
+
+⚠️ **Aviso:** caso você tenha PostgreSQL instalado na sua máquina é aconselhado alterar a porta de conexão, variável `POSTGRES_PORT` em `.env` criado na lista de comandos abaixo. Use o mesmo valor da variável alterada para a propriedade "Port" no comando `dotnet user-secrets set`. 
+
+```bash
+# copia o arquivo .env.example e salva em um novo arquivo .env
+cp .env.example .env
+
+# inicia User Secrets dentro do projeto de API
+dotnet user-secrets init --project src/UrlShortener.Api
+# define User Secrets dentro do projeto de API
+dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=urlshortener;Username=urlshortener;Password=localdev" --project src/UrlShortener.Api
+
+# sobe o banco em segundo plano
+docker compose up -d db
+   
+# roda a aplicação com o esquema e porta corretos
+dotnet run --project src/UrlShortener.Api --launch-profile http
+
+```
+
+> Os passos acima são temporários, serão resumidos a dois comandos quando a API entrar no container.
+
 ## ✨ Funcionalidades Fase 1
 
 ### ⚙️ Backend
@@ -34,6 +66,8 @@ O encurtador resolve isso gerando um link curto e estável que redireciona para 
 ### 🧪 Testes
 - Testes unitários do gerador de código curto.
 - Um teste de integração do fluxo criar → redirecionar.
+
+**Limitações:** na Fase 1 a aplicação roda localmente, apenas o banco está sendo executado via Docker. Por isso, o teste de integração funcionará somente com o container do banco rodando e com o User Secrets do projeto `UrlShortener.Api`. Para mais informações de como configurar o User Secrets veja [Guia de instalação](#guia-de-instalação-e-inicialização-da-aplicação).
 
 ## 🚧 Fora do escopo na Fase 1
 - Contagem de cliques e estatísticas.
@@ -131,7 +165,7 @@ Servir a página pela própria API traz três benefícios:
 
 **Decisão:** API e PostgreSQL em containers, orquestrados por `docker compose`.
 
-**Justificativa:** o objetivo é que qualquer pessoa execute o projeto com dois comandos sem precisar ter .NET SDK ou PostgreSQL instalado em sua máquina. Os containers entregam um ambiente já montado, isolado e com as versões corretas, eliminando problemas relacionados a versionamento.
+**Justificativa:** o objetivo é que qualquer pessoa execute o projeto com dois comandos sem precisar ter .NET SDK ou PostgreSQL instalado em sua máquina. Os containers entregam um ambiente já montado, isolado e com as versões corretas, eliminando problemas relacionados a versionamento. (Leia instruções para inicializar a aplicação)
 
 ```bash
 cp .env.example .env
