@@ -5,14 +5,46 @@ Uma URL longa pode ser um problema em ambientes com limite de caracteres e pode 
 
 O encurtador resolve isso gerando um link curto e estável que redireciona para o endereço original.
 
+## Guia de instalação e inicialização da aplicação
+
+**Requisitos:**
+
+Clique para ir ao site oficial:
+
+- [Dotnet SDK 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) Versão recomendada: 10.0.100
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+Na raiz do projeto, reproduza os comandos abaixo mantendo a ordem.
+
+⚠️ **Aviso:** caso você tenha PostgreSQL instalado na sua máquina é aconselhado alterar a porta de conexão, variável `POSTGRES_PORT` em `.env` criado na lista de comandos abaixo. Use o mesmo valor da variável alterada para a propriedade "Port" no comando `dotnet user-secrets set`. 
+
+```bash
+# copia o arquivo .env.example e salva em um novo arquivo .env
+cp .env.example .env
+
+# inicia User Secrets dentro do projeto de API
+dotnet user-secrets init --project src/UrlShortener.Api
+# define User Secrets dentro do projeto de API
+dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=urlshortener;Username=urlshortener;Password=localdev" --project src/UrlShortener.Api
+
+# sobe o banco em segundo plano
+docker compose up -d db
+   
+# roda a aplicação com o esquema e porta corretos
+dotnet run --project src/UrlShortener.Api --launch-profile http
+
+```
+
+> Os passos acima são temporários, serão resumidos a dois comandos quando a API entrar no container.
+
 ## ✨ Funcionalidades Fase 1
 
 ### ⚙️ Backend
 - Receber uma URL longa e devolver um código curto.
-- Acessar o código curto e ser redirecionado para a URL original.
+- Acessar o código curto e ser redirecionado para a URL original -> 302 Found.
 - Persistir os links em PostgreSQL.
 - Aceitar apenas URLs com esquema `http` ou `https`.
-- Falhar de forma previsível: URL inválida -> erro claro; código inexistente -> 404.
+- Falhar de forma previsível: URL inválida -> 400 Bad Request; código inexistente -> 404 Not Found.
 - Aplicar as migrations automaticamente na inicialização da aplicação.
 - Ler toda a configuração sensível a partir de variáveis de ambiente.
 - Não deduplicar URLs: cada solicitação gera um novo código.
@@ -35,6 +67,8 @@ O encurtador resolve isso gerando um link curto e estável que redireciona para 
 - Testes unitários do gerador de código curto.
 - Um teste de integração do fluxo criar → redirecionar.
 
+**Limitações:** na Fase 1 a aplicação roda localmente, apenas o banco está sendo executado via Docker. Por isso, o teste de integração funcionará somente com o container do banco rodando e com o User Secrets do projeto `UrlShortener.Api`. Para mais informações de como configurar o User Secrets veja [Guia de instalação](#guia-de-instalação-e-inicialização-da-aplicação).
+
 ## 🚧 Fora do escopo na Fase 1
 - Contagem de cliques e estatísticas.
 - Alias customizado (código escolhido pelo usuário).
@@ -47,7 +81,7 @@ O encurtador resolve isso gerando um link curto e estável que redireciona para 
 - Versionamento de API.
 - Observabilidade.
 - Autenticação.
-
+- Bloquear redirecionamento para endereços privados, loopback e hosts sem TLD.
 
 ## 🏛️ Decisões técnicas
 
@@ -88,18 +122,14 @@ Ela também se torna necessária na Fase 2, quando o alias customizado permitir 
 
 Utilizando 7 caracteres e gerando 1.000 links por segundo ininterruptos, o espaço levaria 111 anos para se esgotar.
 
-Um comprimento variável teria dois custos reais:
-- Enfraqueceria a restrição de rota que desambigua códigos de arquivos estáticos (ver decisão seguinte).
-- Faria a resistência do sistema quanto à enumeração ser determinada pelo menor código já emitido. Um código de 4 caracteres tem ~14,7 milhões de combinações, varríveis em poucas horas. A segurança não é determinada pela média das credenciais já emitidas, mas sim pela mais fraca. 
+Um comprimento variável faz a resistência do sistema quanto à enumeração ser determinada pelo menor código já emitido. Um código de 4 caracteres tem ~14,7 milhões de combinações, varríveis em poucas horas. A segurança não é determinada pela média das credenciais já emitidas, mas sim pela mais fraca. 
 
 ### ✏️ Desambiguação de rota
-**Decisão:** a rota de redirect é restrita por expressão regular (`^[a-zA-Z0-9]{7}$`) e o middleware de arquivos estáticos é registrado antes do roteamento.
+**Decisão:** a rota de redirect é restrita por expressão regular (`^[a-zA-Z0-9]{7}$`).
 
-**Justificativa:** a rota `GET /{code}` é um curinga na raiz do domínio e disputa espaço com `/`, `/style.css` e `/app.js`. A proteção é feita em duas camadas complementares, porque nenhuma resolve sozinha:
+**Justificativa:** a rota `GET /{code}` é um curinga na raiz do domínio e disputa espaço com `/`, `/style.css` e `/app.js`. A proteção é feita por meio da restrição: a regex faz a rota casar apenas com strings que têm forma de código, eliminando a ambiguidade por construção em vez de por ordenação. 
 
-- **Ordem do pipeline:** `UseStaticFiles()` antes do roteamento serve o arquivo e curto-circuita a requisição antes que `{code}` seja avaliado. Protege caminhos atendidos por middleware.
-
-- **Restrição na rota:** a regex faz a rota casar apenas com strings que têm forma de código, eliminando a ambiguidade por construção em vez de por ordenação. Protege contra tudo que não é servido por middleware.
+**Por que não por ordenação:** o hosting mínimo insere o roteamento no início do pipeline, antes de qualquer middleware registrado. Quando o roteamento seleciona um endpoint, o middleware de arquivos estáticos se cala: ele verifica se há endpoint ativo e delega adiante sem servir. Como a rota vence arquivos estáticos, a proteção não pode vir por ordenação. Então, a regex fica com a responsabilidade de impedir a seleção.
 
 **Dependência:** esta restrição só é possível porque o comprimento é fixo. Quando a Fase 2 migrar para geração sequencial + Feistel, o encoding precisará usar padding para manter o comprimento constante.
 
@@ -108,13 +138,20 @@ Um comprimento variável teria dois custos reais:
 **Decisão:** aceitar apenas URLs absolutas com esquema `http` ou `https`.
 
 **Justificativa:** sem essa restrição o serviço permite redirecionar para esquemas perigosos ou inadequados: `javascript:`, `data:` e `file:`, tornando o encurtador um mecanismo que possibilita ataques por meio de links maliciosos.
- 
+
+**Limitação:** endereços privados, loopback e hosts sem TLD passam na validação. O risco não é o servidor buscar essas URLs (SSRF), e sim alguém disfarçar um link para o painel do roteador de quem clicar.
+
+### ✏️ Status do redirecionamento
+
+**Decisão:** retornar status code 302 Found no endpoint de redirecionamento.
+
+**Justificativa:** o status code 301 é cacheado pelo navegador de forma agressiva, ignorando a API para links acessados mais de uma vez na mesma máquina, o que resulta na perda da capacidade de alterar ou desativar o link para quem já o visitou. Além disso, o funcionamento do contador de cliques também será prejudicado após sua implementação. O status code 307 também foi considerado, mas como o endpoint de redirect é acessado exclusivamente via GET, sua preservação torna-se irrelevante.
 
 ### ✏️ Ferramenta para servir interface
 
-**Decisão:** Servir uma página estática pelo `wwwroot` do ASP.NET, sem framework de frontend.
+**Decisão:** servir uma página estática pelo `wwwroot` do ASP.NET, sem framework de frontend.
 
-**Justificativa:** o uso de um framework seria desproporcional ao problema. Não por ser ruim, mas por resolver problemas que essa tela não tem.
+**Justificativa:** o uso de um framework seria desproporcional ao problema. Não por ser ruim, mas por resolver problemas que esta tela não tem.
 
 Servir a página pela própria API traz três benefícios:
 
@@ -128,7 +165,7 @@ Servir a página pela própria API traz três benefícios:
 
 **Decisão:** API e PostgreSQL em containers, orquestrados por `docker compose`.
 
-**Justificativa:** o objetivo é que qualquer pessoa execute o projeto com dois comandos sem precisar ter .NET SDK ou PostgreSQL instalado em sua máquina. Os containers entregam um ambiente já montado, isolado e com as versões corretas, eliminando problemas relacionados a versionamento.
+**Justificativa:** o objetivo é que qualquer pessoa execute o projeto com dois comandos sem precisar ter .NET SDK ou PostgreSQL instalado em sua máquina. Os containers entregam um ambiente já montado, isolado e com as versões corretas, eliminando problemas relacionados a versionamento. (Leia instruções para inicializar a aplicação)
 
 ```bash
 cp .env.example .env

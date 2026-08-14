@@ -17,10 +17,22 @@ builder.Services.AddSingleton<IShortCodeGenerator, Base62ShortCodeGenerator>();
 
 var app = builder.Build();
 
+{ 
+
+    using var scope = app.Services.CreateScope();
+
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    await dbContext.Database.MigrateAsync();
+
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapPost("/api/short-url", async (CreateShortLinkRequest request, IShortCodeGenerator generator, AppDbContext context, IConfiguration configuration, ILogger<Program> logger) =>
 {
@@ -70,6 +82,15 @@ app.MapPost("/api/short-url", async (CreateShortLinkRequest request, IShortCodeG
     }
     logger.LogError("Failed to generate a unique code after {MaxAttempts} attempts", maxAttempts);
     return Results.InternalServerError("The attempt limit has been reached.");
+});
+
+app.MapGet("/{code:regex(^[a-zA-Z0-9]{{7}}$)}", async (string code, AppDbContext context) =>
+{
+    var originalUrl = await context.ShortLinks.Where(c => c.Code == code).Select(o => o.OriginalUrl).FirstOrDefaultAsync();
+
+    if (originalUrl is null) return Results.NotFound("Short link not found.");
+
+    return Results.Redirect(originalUrl);
 });
 
 app.Run();
