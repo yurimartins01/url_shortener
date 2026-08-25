@@ -1,10 +1,49 @@
 ﻿<!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
     <meta charset="utf-8" />
-    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>URL Shortener</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <p>index is working</p>
+    <main>
+
+        <section>
+            <div class="title">
+                <h1>URL Shortener</h1>
+
+            </div>
+
+            <div class="url-shortener-container">
+                <div>
+                    <p class="subtitle">Digite a URL que deseja encurtar abaixo, a URL deve ser do tipo http ou https.</p>
+                    <p class="subtitle">O tamanho máximo aceito é de 2048 caracteres</p>
+                </div>
+
+                <div class="input-container">
+                    <div class="data-wrapper">
+
+                        <label for="long-url">URL longa:</label>
+                        <input id="long-url" class="input-url" maxlength="2048"/>
+                        <p id="error" hidden></p>
+                    </div>
+                </div>
+                <div class="output-container" hidden>
+                    <div class="data-wrapper">
+
+                        <label for="short-url">URL curta:</label>
+                        <div class="copy-wrapper">
+                            <input id="short-url" class="input-url" readonly>
+                            <button id="btn-copy" class="btn-copy" type="button" aria-label="Copiar URL curta"><img src="assets/images/copy-svg.svg" alt="" /></button>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-shorten" class="btn-shorten" type="button">Gerar link curto</button>
+            </div>
+        </section>
+
+    </main>
+    <script defer src="app.js"></script>
 </body>
 </html>
