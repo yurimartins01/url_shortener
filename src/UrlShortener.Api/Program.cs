@@ -36,21 +36,22 @@ app.UseStaticFiles();
 
 app.MapPost("/api/short-url", async (CreateShortLinkRequest request, IShortCodeGenerator generator, AppDbContext context, IConfiguration configuration, ILogger<Program> logger) =>
 {
-    if (request.OriginalUrl is null) return Results.BadRequest("Original Url should no be null.");
-    if (request.OriginalUrl.Length > 2048) return Results.BadRequest("OriginalUrl has length greater than field capacity: 2048");
+    if (request.OriginalUrl is null) return Results.BadRequest("A URL não pode ser nula");
+    if (request.OriginalUrl.Length < 1) return Results.BadRequest("A URL não pode ser vazia.");
+    if (request.OriginalUrl.Length > 2048) return Results.BadRequest("A URL deve ser igual ou menor a 2048 caracteres.");
 
-    if (!Uri.TryCreate(request.OriginalUrl, UriKind.Absolute, out var uri)) return Results.BadRequest("The given text is invalid. Only URLs are accepted.");
+    if (!Uri.TryCreate(request.OriginalUrl, UriKind.Absolute, out var uri)) return Results.BadRequest("Formato inválido, apenas URLs são aceitas.");
 
     if (uri.Scheme != "http" && uri.Scheme != "https")
     {
-        return Results.BadRequest("The given URL is invalid. Only http and https schemes are accepted.");
+        return Results.BadRequest("A URL é inválida, apenas esquemas HTTP e HTTPS são aceitos.");
     }
 
     int attempts = 1;
     int maxAttempts = 5;
     var url = configuration.GetValue<string>("BaseUrl");
 
-    if (string.IsNullOrWhiteSpace(url) || !url.EndsWith('/')) return Results.InternalServerError("The base URL is not defined, missing '/' or empty in the application");
+    if (string.IsNullOrWhiteSpace(url) || !url.EndsWith('/')) return Results.InternalServerError("A URL base não está definida, falta '/' ou está vazia na aplicação.");
 
     while (maxAttempts >= attempts)
     {
@@ -73,22 +74,22 @@ app.MapPost("/api/short-url", async (CreateShortLinkRequest request, IShortCodeG
         catch (DbUpdateException e) when (e.InnerException is PostgresException pge && pge.SqlState == PostgresErrorCodes.UniqueViolation)
         {
 
-            logger.LogWarning(pge, "Collision of code detected. Attempts: ({Attempts}/{MaxAttempts}).", attempts, maxAttempts);
+            logger.LogWarning(pge, "Colisão detectada. Tentivas: ({Attempts}/{MaxAttempts}).", attempts, maxAttempts);
             context.Entry(shortLinkEntity).State = EntityState.Detached;
 
             attempts++;
 
         }
     }
-    logger.LogError("Failed to generate a unique code after {MaxAttempts} attempts", maxAttempts);
-    return Results.InternalServerError("The attempt limit has been reached.");
+    logger.LogError("Falha em gerar um código único após {MaxAttempts} tentativas.", maxAttempts);
+    return Results.InternalServerError("Número máximo de tentativas atingido.");
 });
 
 app.MapGet("/{code:regex(^[a-zA-Z0-9]{{7}}$)}", async (string code, AppDbContext context) =>
 {
     var originalUrl = await context.ShortLinks.Where(c => c.Code == code).Select(o => o.OriginalUrl).FirstOrDefaultAsync();
 
-    if (originalUrl is null) return Results.NotFound("Short link not found.");
+    if (originalUrl is null) return Results.NotFound("Link curto não encontrado.");
 
     return Results.Redirect(originalUrl);
 });
