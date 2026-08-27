@@ -1,4 +1,5 @@
 # 🔗 URL Shortener
+
 `.NET 10` `PostgreSQL` `Docker`
 
 Uma URL longa pode ser um problema em ambientes com limite de caracteres e pode ser quebrada por clientes de e-mail tornando o link inacessível.
