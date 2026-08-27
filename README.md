@@ -11,12 +11,30 @@ O encurtador resolve isso gerando um link curto e estável que redireciona para 
 
 Clique para ir ao site oficial:
 
-- [Dotnet SDK 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) Versão recomendada: 10.0.100
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
 Na raiz do projeto, reproduza os comandos abaixo mantendo a ordem.
 
-⚠️ **Aviso:** caso você tenha PostgreSQL instalado na sua máquina é aconselhado alterar a porta de conexão, variável `POSTGRES_PORT` em `.env` criado na lista de comandos abaixo. Use o mesmo valor da variável alterada para a propriedade "Port" no comando `dotnet user-secrets set`. 
+⚠️ **Aviso:** caso a porta 5432 esteja ocupada na máquina, altere a variável `POSTGRES_PORT` no arquivo `.env` criado após o primeiro comando abaixo.
+
+```bash
+# copia o arquivo .env.example e salva em um novo arquivo .env
+cp .env.example .env
+
+# sobe a aplicação e o banco em segundo plano
+docker compose up -d
+
+```
+
+### Guia para testes
+
+**Requisitos:**
+
+Clique para ir ao site oficial:
+
+- [Dotnet SDK 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) Versão recomendada: 10.0.100
+
+⚠️ **Aviso:** caso a porta 5432 esteja ocupada na máquina, altere a variável `POSTGRES_PORT` no arquivo `.env` criado após o primeiro comando abaixo. Use o mesmo valor da variável alterada para a propriedade "Port" no comando `dotnet user-secrets set`. 
 
 ```bash
 # copia o arquivo .env.example e salva em um novo arquivo .env
@@ -24,18 +42,18 @@ cp .env.example .env
 
 # inicia User Secrets dentro do projeto de API
 dotnet user-secrets init --project src/UrlShortener.Api
+
 # define User Secrets dentro do projeto de API
 dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=urlshortener;Username=urlshortener;Password=localdev" --project src/UrlShortener.Api
 
-# sobe o banco em segundo plano
+# inicia o banco postgres dentro do container docker, necessário para testes de integração
+# -d faz rodar em segundo plano, permitindo outros comandos no terminal
 docker compose up -d db
-   
-# roda a aplicação com o esquema e porta corretos
-dotnet run --project src/UrlShortener.Api --launch-profile http
+
+# executa os testes de unidade e integração
+dotnet test
 
 ```
-
-> Os passos acima são temporários, serão resumidos a dois comandos quando a API entrar no container.
 
 ## ✨ Funcionalidades Fase 1
 
@@ -67,7 +85,9 @@ dotnet run --project src/UrlShortener.Api --launch-profile http
 - Testes unitários do gerador de código curto.
 - Um teste de integração do fluxo criar → redirecionar.
 
-**Limitações:** na Fase 1 a aplicação roda localmente, apenas o banco está sendo executado via Docker. Por isso, o teste de integração funcionará somente com o container do banco rodando e com o User Secrets do projeto `UrlShortener.Api`. Para mais informações de como configurar o User Secrets veja [Guia de instalação](#guia-de-instalação-e-inicialização-da-aplicação).
+**Requisitos:** `SDK 10` instalado na máquina.
+
+**Limitações:** o banco é executado via Docker. Por isso, o teste de integração funcionará somente com o container do banco rodando, SDK dotnet instalado e com o User Secrets do projeto `UrlShortener.Api`. Para mais informações de como instalar o SDK e configurar o User Secrets veja [Guia para testes](#guia-para-testes).
 
 ## 🚧 Fora do escopo na Fase 1
 - Contagem de cliques e estatísticas.
@@ -82,6 +102,8 @@ dotnet run --project src/UrlShortener.Api --launch-profile http
 - Observabilidade.
 - Autenticação.
 - Bloquear redirecionamento para endereços privados, loopback e hosts sem TLD.
+- Página de erro 404 personalizada.
+- Verificação de existência ou disponibilidade da URL de destino.
 
 ## 🏛️ Decisões técnicas
 
@@ -165,12 +187,24 @@ Servir a página pela própria API traz três benefícios:
 
 **Decisão:** API e PostgreSQL em containers, orquestrados por `docker compose`.
 
-**Justificativa:** o objetivo é que qualquer pessoa execute o projeto com dois comandos sem precisar ter .NET SDK ou PostgreSQL instalado em sua máquina. Os containers entregam um ambiente já montado, isolado e com as versões corretas, eliminando problemas relacionados a versionamento. (Leia instruções para inicializar a aplicação)
+**Justificativa:** o objetivo é que qualquer pessoa execute o projeto com dois comandos sem precisar ter .NET SDK ou PostgreSQL instalado em sua máquina. Os containers entregam um ambiente já montado, isolado e com as versões corretas, eliminando problemas relacionados a versionamento. (Leia [instruções para inicializar a aplicação](#guia-de-instalação-e-inicialização-da-aplicação)). O serviço "api" roda com `depends_on: service_healthy` o que impede que ela suba antes do banco (necessário porque as migrations rodam no startup). 
 
 ```bash
 cp .env.example .env
 docker compose up
 ```
+
+### ✏️ Build da imagem da API
+
+**Decisão:** `Dockerfile` escrito manualmente, com multi-stage, imagens `Alpine` e usuário não-root.
+
+**Justificativa:** o multi-stage separa o ambiente de compilação do de execução — o SDK compila em um estágio e apenas o resultado publicado é copiado para a imagem final, baseada no runtime. Isso reduz o tamanho e a superfície de ataque, já que ferramentas de build não vão para produção. O resultado é uma imagem de ~57,7 MB.
+
+A ordem das instruções aproveita o cache de camadas: o `.csproj` é copiado e restaurado antes do código-fonte. Como as dependências mudam com pouca frequência e o código muda a cada alteração, builds subsequentes reaproveitam a camada de restore diferença de 72s para 1,4s quando apenas o código muda.
+
+O usuário não-root limita o impacto de uma eventual invasão: o processo não tem privilégios administrativos dentro do container.
+
+**Limitação:** a imagem `Alpine` não inclui as bibliotecas Kerberos, o que gera o aviso `Cannot load library libgssapi_krb5.so.2` na inicialização. É inofensivo neste projeto, porque a autenticação com o PostgreSQL é feita por senha.
 
 ### ✏️ Aplicação de migrations no startup
 
