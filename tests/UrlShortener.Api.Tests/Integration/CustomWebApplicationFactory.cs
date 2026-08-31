@@ -12,7 +12,7 @@ namespace UrlShortener.Api.Tests
             builder.ConfigureAppConfiguration((context, config) =>
             {
                 var connectionString = context.Configuration.GetConnectionString("Default")
-                ?? throw new InvalidOperationException("ConnectionStrings:Default not found. Configure the user secrets of UrlShortener.Api project before executing the tests.");
+                ?? throw new InvalidOperationException("ConnectionStrings:Default não encontrada. Configure o user-secrets do projeto UrlShortener.Api antes de executar os testes.");
                 
                 NpgsqlConnectionStringBuilder psql = new(connectionString)
                 {
