@@ -2,7 +2,7 @@
 const shortUrlField = document.getElementById("short-url")
 const btnShorten = document.getElementById("btn-shorten")
 const errorField = document.getElementById("error")
-const outputContainer = document.querySelector(".output-container")
+const outputContainer = document.getElementById("output-container")
 const btnCopy = document.getElementById("btn-copy")
 let urlGenerated = false
 
