@@ -1,4 +1,6 @@
-﻿using UrlShortener.Api.Contracts;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using System.Net;
+using UrlShortener.Api.Contracts;
 using UrlShortener.Api.Infrastructure;
 
 namespace UrlShortener.Api.Endpoints
@@ -9,28 +11,49 @@ namespace UrlShortener.Api.Endpoints
         {
             app.MapPost("/api/short-url", async (CreateShortLinkRequest request, IConfiguration configuration, ShortLinkService service) =>
             {
-
                 var result = await service.CreateAsync(request);
 
                 if (!result.Success)
                 {
-                    return result.Error switch
+                    var errors = new Dictionary<string, string[]>();
+
+                    switch(result.Error)
                     {
-                        CreateShortLinkError.NullUrl => Results.BadRequest("A URL não pode ser nula"),
+                        case CreateShortLinkError.NullUrl:
+                            errors.Add("originalUrl", ["A URL não pode ser nula"]);
+                            break;
 
-                        CreateShortLinkError.EmptyUrl => Results.BadRequest("A URL não pode ser vazia."),
+                        case CreateShortLinkError.EmptyUrl:
+                            errors.Add("originalUrl", ["A URL não pode ser vazia."]);
+                            break;
 
-                        CreateShortLinkError.TooLongUrl => Results.BadRequest("A URL deve ser igual ou menor a 2048 caracteres."),
+                        case CreateShortLinkError.TooLongUrl: 
+                            errors.Add("originalUrl", ["A URL deve ser igual ou menor a 2048 caracteres."]);
+                            break;
 
-                        CreateShortLinkError.NotAnUrl => Results.BadRequest("Formato inválido, apenas URLs são aceitas."),
+                        case CreateShortLinkError.NotAnUrl: 
+                            errors.Add("originalUrl", ["Formato inválido, apenas URLs são aceitas."]);
+                            break;
 
-                        CreateShortLinkError.InvalidUrlScheme => Results.BadRequest("A URL é inválida, apenas esquemas HTTP e HTTPS são aceitos."),
+                        case CreateShortLinkError.InvalidUrlScheme: 
+                            errors.Add("originalUrl", ["A URL é inválida, apenas esquemas HTTP e HTTPS são aceitos."]);
+                            break;
 
-                        CreateShortLinkError.MaxAttemptsReached => Results.InternalServerError("Número máximo de tentativas atingido."),
+                        case CreateShortLinkError.MaxAttemptsReached:
+                            
+                            return Results.Problem(
+                                title: "Falha na criação do código da URL curta.",
+                                detail: "Número máximo de tentativas atingido.",
+                                statusCode: (int)HttpStatusCode.InternalServerError);
 
-                        _ => Results.InternalServerError()
+                        default: return Results.Problem();
 
                     };
+
+                    return Results.ValidationProblem(
+                        errors: errors,
+                        title: "Falha na validação da URL"
+                    );
                 }
 
                 var url = configuration.GetValue<string>("BaseUrl");

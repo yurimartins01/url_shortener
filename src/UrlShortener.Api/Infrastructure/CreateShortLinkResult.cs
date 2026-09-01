@@ -10,7 +10,8 @@
         MaxAttemptsReached
     }
     public record CreateShortLinkResult(
-        bool Success, string? Code = null,
+        bool Success, 
+        string? Code = null,
         DateTime? CreatedAt = null,
         CreateShortLinkError? Error = null
         );

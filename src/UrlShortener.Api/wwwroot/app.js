@@ -39,11 +39,11 @@ async function generateShortUrl() {
             body: JSON.stringify({ originalUrl: longUrlField.value }),
         })
         if (!response.ok) {
-            let errorMessage = await response.text()
+            const errorMessage = await response.json()
  
             return {
                 success: false,
-                error: errorMessage.slice(1, -1)
+                error: errorMessage.errors?.originalUrl?.join(", ") ?? errorMessage.detail
             };
         }
 
