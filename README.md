@@ -2,9 +2,14 @@
 
 `.NET 10` `PostgreSQL` `Docker`
 
+<p align="center">
+  <img src="./docs/gif-apresentacao.gif" width="100%" alt="Demonstração do projeto">
+</p>
+
 Uma URL longa pode ser um problema em ambientes com limite de caracteres e pode ser quebrada por clientes de e-mail tornando o link inacessível.
 
 O encurtador resolve isso gerando um link curto e estável que redireciona para o endereço original.
+
 
 ## Guia de instalação e inicialização da aplicação
 
